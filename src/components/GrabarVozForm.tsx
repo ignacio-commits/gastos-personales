@@ -20,6 +20,37 @@ export default function GrabarVozForm({ mesActual, yearActual }: GrabarVozFormPr
   const [exito, setExito] = useState('')
   const recognitionRef = useRef<any>(null)
 
+  const procesarTranscripcion = async (transcript: string) => {
+    if (!transcript.trim()) {
+      setError('No se detectó audio. Intenta de nuevo.')
+      return
+    }
+
+    setTextoReconocido(transcript)
+    setProcesando(true)
+
+    try {
+      const result = await procesarGastoDeVoz(transcript, mesActual, yearActual)
+
+      if (result.error) {
+        setError(result.error)
+      } else if (result.success) {
+        setExito(
+          `✅ ${result.gastosCreados} gasto(s) creado(s): $${result.detalle.monto.toLocaleString('es-CL')} - ${result.detalle.concepto} en ${result.detalle.meses.length > 1 ? result.detalle.meses.length + ' meses' : 'este mes'}`
+        )
+        setTimeout(() => {
+          router.refresh()
+          setTextoReconocido('')
+          setExito('')
+        }, 2000)
+      }
+    } catch (err) {
+      setError('Error al procesar el audio')
+    } finally {
+      setProcesando(false)
+    }
+  }
+
   const iniciarGrabacion = () => {
     setError('')
     setExito('')
@@ -37,59 +68,61 @@ export default function GrabarVozForm({ mesActual, yearActual }: GrabarVozFormPr
 
     recognition.lang = 'es-ES'
     recognition.continuous = false
-    recognition.interimResults = false
+    recognition.interimResults = true
+    recognition.maxAlternatives = 1
+
+    let finalTranscript = ''
+    let timeoutId: NodeJS.Timeout
 
     recognition.onstart = (): void => {
       setGrabando(true)
       setError('')
+
+      // Timeout automático después de 15 segundos
+      timeoutId = setTimeout(() => {
+        recognition.stop()
+      }, 15000)
     }
 
-    recognition.onresult = async (event: any): Promise<void> => {
-      const transcript = Array.from(event.results)
-        .map((result: any) => result[0].transcript)
-        .join('')
+    recognition.onresult = (event: any): void => {
+      let interimTranscript = ''
 
-      setTextoReconocido(transcript)
-      setGrabando(false)
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript
 
-      // Procesar el texto con Claude
-      if (transcript.trim()) {
-        setProcesando(true)
-        try {
-          const result = await procesarGastoDeVoz(transcript, mesActual, yearActual)
-
-          if (result.error) {
-            setError(result.error)
-          } else if (result.success) {
-            setExito(
-              `✅ ${result.gastosCreados} gasto(s) creado(s): $${result.detalle.monto.toLocaleString('es-CL')} - ${result.detalle.concepto} en ${result.detalle.meses.length > 1 ? result.detalle.meses.length + ' meses' : 'este mes'}`
-            )
-            setTimeout(() => {
-              router.refresh()
-              setTextoReconocido('')
-              setExito('')
-            }, 2000)
-          }
-        } catch (err) {
-          setError('Error al procesar el audio')
-        } finally {
-          setProcesando(false)
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' '
+        } else {
+          interimTranscript += transcript
         }
+      }
+
+      // Mostrar texto mientras se está hablando
+      if (interimTranscript || finalTranscript) {
+        setTextoReconocido(finalTranscript + interimTranscript)
       }
     }
 
     recognition.onerror = (event: any): void => {
       setGrabando(false)
+      clearTimeout(timeoutId)
       const mensajesError: { [key: string]: string } = {
         'no-speech': 'No se detectó audio. Intenta de nuevo.',
         'audio-capture': 'No hay acceso al micrófono. Verifica los permisos.',
         'network': 'Error de conexión. Intenta de nuevo.',
+        'permission-denied': 'Permiso de micrófono denegado. Verifica los permisos del navegador.',
       }
       setError(mensajesError[event.error] || `Error: ${event.error}`)
     }
 
     recognition.onend = (): void => {
+      clearTimeout(timeoutId)
       setGrabando(false)
+
+      // Procesar el texto transcrito al final
+      if (finalTranscript.trim()) {
+        procesarTranscripcion(finalTranscript.trim())
+      }
     }
 
     recognition.start()
@@ -97,7 +130,12 @@ export default function GrabarVozForm({ mesActual, yearActual }: GrabarVozFormPr
 
   const detenerGrabacion = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop()
+      // En iOS Safari, a veces necesita abort() en lugar de stop()
+      try {
+        recognitionRef.current.stop()
+      } catch (err) {
+        recognitionRef.current.abort()
+      }
       setGrabando(false)
     }
   }
