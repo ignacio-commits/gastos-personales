@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MESES } from '@/types'
 
@@ -40,9 +41,18 @@ export default function NavMeses({ year, month }: NavMesesProps) {
       <Button variant="ghost" size="icon" onClick={goToPrev} className="text-white hover:bg-blue-600">
         <ChevronLeft className="h-5 w-5" />
       </Button>
-      <h1 className="text-xl font-bold text-white min-w-[180px] text-center">
-        {monthName} {year}
-      </h1>
+      <div className="flex flex-col items-center">
+        <h1 className="text-xl font-bold text-white min-w-[180px] text-center">
+          {monthName} {year}
+        </h1>
+        <Link
+          href={`/gastos/${year}`}
+          className="flex items-center gap-1 text-xs text-blue-200 hover:text-white transition-colors"
+        >
+          <BarChart3 className="h-3 w-3" />
+          Ver año completo
+        </Link>
+      </div>
       <Button variant="ghost" size="icon" onClick={goToNext} className="text-white hover:bg-blue-600">
         <ChevronRight className="h-5 w-5" />
       </Button>
