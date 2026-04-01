@@ -200,7 +200,7 @@ Texto de voz: "${textoVoz}"
 Responde SOLO con JSON válido, sin markdown ni explicaciones.`
 
     const message = await client.messages.create({
-      model: 'claude-opus-4-6',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 500,
       messages: [
         {
