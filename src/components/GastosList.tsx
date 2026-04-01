@@ -57,15 +57,15 @@ export default function GastosList({ gastos, mesActual }: GastosListProps) {
           >
             <div className="text-xl w-8 text-center flex-shrink-0">{cat.icon}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{gasto.concepto}</p>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className="text-xs text-gray-400">{formatFecha(gasto.fecha)}</span>
-                <Badge className={`${cat.bgColor} ${cat.textColor} text-xs`}>
+              <p className="text-sm font-medium text-gray-900 leading-snug break-words">{gasto.concepto}</p>
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="text-xs text-gray-400 whitespace-nowrap">{formatFecha(gasto.fecha)}</span>
+                <Badge className={`${cat.bgColor} ${cat.textColor} text-xs whitespace-nowrap`}>
                   {gasto.categoria}
                 </Badge>
-                <span className="text-xs text-gray-400">{gasto.metodo_pago}</span>
+                <span className="text-xs text-gray-400 whitespace-nowrap">{gasto.metodo_pago}</span>
                 {gasto.tarjeta && (
-                  <Badge className="bg-blue-100 text-blue-800 text-xs">
+                  <Badge className="bg-blue-100 text-blue-800 text-xs whitespace-nowrap">
                     {gasto.tarjeta}
                   </Badge>
                 )}
