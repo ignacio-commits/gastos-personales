@@ -99,8 +99,9 @@ export default async function GastosPage({ params }: PageProps) {
   const totalAhorradoAnio = (ahorrosAnioResult.data ?? []).reduce((sum, a) => sum + a.monto, 0)
 
   const totalGastos = gastos.reduce((sum, g) => sum + g.monto, 0)
-  const disponible = presupuesto - totalGastos
-  const pctUsado = presupuesto > 0 ? Math.min(Math.round((totalGastos / presupuesto) * 100), 100) : 0
+  const totalAhorrosMes = ahorrosMes.reduce((sum, a) => sum + a.monto, 0)
+  const disponible = presupuesto - totalGastos - totalAhorrosMes
+  const pctUsado = presupuesto > 0 ? Math.min(Math.round(((totalGastos + totalAhorrosMes) / presupuesto) * 100), 100) : 0
 
   return (
     <div className="min-h-screen bg-gray-50">
