@@ -11,6 +11,7 @@ import GraficoDonut from '@/components/GraficoDonut'
 import GraficoMetodoPago from '@/components/GraficoMetodoPago'
 import PresupuestoEditor from '@/components/PresupuestoEditor'
 import GrabarVozForm from '@/components/GrabarVozForm'
+import DuplicarMesForm from '@/components/DuplicarMesForm'
 import { cerrarSesion } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 
@@ -93,6 +94,11 @@ export default async function GastosPage({ params }: PageProps) {
               />
             </div>
             <p className="text-xs text-blue-300 mt-1">{pctUsado}% del presupuesto utilizado</p>
+          </div>
+
+          {/* Duplicar mes */}
+          <div className="mt-3">
+            <DuplicarMesForm year={year} month={month} />
           </div>
         </div>
       </header>

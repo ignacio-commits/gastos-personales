@@ -167,6 +167,70 @@ export async function actualizarPresupuesto(data: {
   return { success: true }
 }
 
+export async function duplicarMesCompleto(data: {
+  year: number
+  month: number
+  mesesDestino: number[]
+}) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { error: 'No autenticado' }
+  }
+
+  // Obtener todos los gastos del mes actual
+  const startDate = `${data.year}-${String(data.month).padStart(2, '0')}-01`
+  const lastDay = new Date(data.year, data.month, 0).getDate()
+  const endDate = `${data.year}-${String(data.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+  const { data: gastosActuales, error: fetchError } = await supabase
+    .from('gastos')
+    .select('*')
+    .eq('user_id', user.id)
+    .gte('fecha', startDate)
+    .lte('fecha', endDate)
+
+  if (fetchError || !gastosActuales) {
+    return { error: 'Error al obtener los gastos del mes' }
+  }
+
+  if (gastosActuales.length === 0) {
+    return { error: 'No hay gastos en este mes para duplicar' }
+  }
+
+  // Crear copias para cada mes seleccionado
+  const gastosDuplicados = gastosActuales.flatMap((gasto) =>
+    data.mesesDestino.map((mes) => {
+      const [, , day] = gasto.fecha.split('-')
+      const nuevaFecha = `${data.year}-${String(mes).padStart(2, '0')}-${day}`
+
+      return {
+        user_id: user.id,
+        concepto: gasto.concepto,
+        categoria: gasto.categoria,
+        monto: gasto.monto,
+        metodo_pago: gasto.metodo_pago,
+        tarjeta: gasto.tarjeta || null,
+        fecha: nuevaFecha,
+      }
+    })
+  )
+
+  const { error } = await supabase.from('gastos').insert(gastosDuplicados)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return {
+    success: true,
+    gastosCreados: gastosDuplicados.length,
+    gastosOriginales: gastosActuales.length,
+    mesesAfectados: data.mesesDestino.length
+  }
+}
+
 export async function cerrarSesion() {
   const supabase = await createClient()
   await supabase.auth.signOut()
