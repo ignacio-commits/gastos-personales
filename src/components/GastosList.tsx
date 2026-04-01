@@ -1,13 +1,13 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { Trash2, RefreshCw, ChevronsRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { type Gasto, CATEGORIAS } from '@/types'
 import { formatCLP } from '@/lib/utils'
-import { eliminarGasto } from '@/app/actions'
+import { eliminarGasto, agregarSiguienteCuota } from '@/app/actions'
 import EditGastoForm from './EditGastoForm'
 import DuplicateGastoForm from './DuplicateGastoForm'
 
@@ -28,12 +28,23 @@ function formatFecha(fecha: string): string {
 export default function GastosList({ gastos, mesActual }: GastosListProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [cuotaExito, setCuotaExito] = useState<string | null>(null)
 
   const handleDelete = (id: string) => {
     if (!confirm('¿Eliminar este gasto?')) return
     startTransition(async () => {
       await eliminarGasto(id)
       router.refresh()
+    })
+  }
+
+  const handleSiguienteCuota = (id: string) => {
+    startTransition(async () => {
+      const result = await agregarSiguienteCuota(id)
+      if (result.success) {
+        setCuotaExito(`Cuota ${result.nuevaCuota}/${result.totalCuotas} agregada al mes siguiente`)
+        setTimeout(() => { setCuotaExito(null); router.refresh() }, 2000)
+      }
     })
   }
 
@@ -48,8 +59,15 @@ export default function GastosList({ gastos, mesActual }: GastosListProps) {
 
   return (
     <div className="divide-y divide-gray-100">
+      {cuotaExito && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-2">
+          <p className="text-sm text-green-700">{cuotaExito}</p>
+        </div>
+      )}
       {gastos.map((gasto) => {
         const cat = getCategoriaConfig(gasto.categoria)
+        const tieneCuota = gasto.cuota_actual && gasto.cuota_total
+        const esUltimaCuota = tieneCuota && gasto.cuota_actual === gasto.cuota_total
         return (
           <div
             key={gasto.id}
@@ -69,12 +87,34 @@ export default function GastosList({ gastos, mesActual }: GastosListProps) {
                     {gasto.tarjeta}
                   </Badge>
                 )}
+                {tieneCuota && (
+                  <Badge className="bg-orange-100 text-orange-800 text-xs whitespace-nowrap">
+                    {gasto.cuota_actual}/{gasto.cuota_total}
+                  </Badge>
+                )}
+                {gasto.recurrente && (
+                  <Badge className="bg-purple-100 text-purple-800 text-xs whitespace-nowrap">
+                    🔄 Fijo
+                  </Badge>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               <span className="text-sm font-semibold text-gray-900">
                 {formatCLP(gasto.monto)}
               </span>
+              {tieneCuota && !esUltimaCuota && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-orange-400 hover:text-orange-600 hover:bg-orange-50"
+                  onClick={() => handleSiguienteCuota(gasto.id)}
+                  disabled={isPending}
+                  title={`Agregar cuota ${gasto.cuota_actual! + 1}/${gasto.cuota_total} al mes siguiente`}
+                >
+                  <ChevronsRight className="h-3.5 w-3.5" />
+                </Button>
+              )}
               <EditGastoForm gasto={gasto} />
               <DuplicateGastoForm gasto={gasto} mesActual={mesActual} />
               <Button

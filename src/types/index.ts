@@ -24,6 +24,9 @@ export interface Gasto {
   monto: number
   metodo_pago: MetodoPago
   tarjeta?: Tarjeta | null
+  recurrente?: boolean
+  cuota_actual?: number | null
+  cuota_total?: number | null
   created_at: string
 }
 

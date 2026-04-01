@@ -10,6 +10,9 @@ export async function agregarGasto(data: {
   metodo_pago: MetodoPago
   tarjeta?: Tarjeta | null
   fecha: string
+  recurrente?: boolean
+  cuota_actual?: number | null
+  cuota_total?: number | null
 }) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -26,6 +29,9 @@ export async function agregarGasto(data: {
     metodo_pago: data.metodo_pago,
     tarjeta: data.tarjeta || null,
     fecha: data.fecha,
+    recurrente: data.recurrente ?? false,
+    cuota_actual: data.cuota_actual ?? null,
+    cuota_total: data.cuota_total ?? null,
   })
 
   if (error) {
@@ -63,6 +69,9 @@ export async function actualizarGasto(id: string, data: {
   metodo_pago: MetodoPago
   tarjeta?: Tarjeta | null
   fecha: string
+  recurrente?: boolean
+  cuota_actual?: number | null
+  cuota_total?: number | null
 }) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -80,6 +89,9 @@ export async function actualizarGasto(id: string, data: {
       metodo_pago: data.metodo_pago,
       tarjeta: data.tarjeta || null,
       fecha: data.fecha,
+      recurrente: data.recurrente ?? false,
+      cuota_actual: data.cuota_actual ?? null,
+      cuota_total: data.cuota_total ?? null,
     })
     .eq('id', id)
     .eq('user_id', user.id)
@@ -89,6 +101,120 @@ export async function actualizarGasto(id: string, data: {
   }
 
   return { success: true }
+}
+
+export async function agregarSiguienteCuota(id: string) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { error: 'No autenticado' }
+  }
+
+  const { data: gasto, error: fetchError } = await supabase
+    .from('gastos')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (fetchError || !gasto) {
+    return { error: 'Gasto no encontrado' }
+  }
+
+  if (!gasto.cuota_actual || !gasto.cuota_total) {
+    return { error: 'El gasto no tiene información de cuotas' }
+  }
+
+  if (gasto.cuota_actual >= gasto.cuota_total) {
+    return { error: 'Esta es la última cuota' }
+  }
+
+  const [year, month, day] = gasto.fecha.split('-')
+  let nextMonth = parseInt(month) + 1
+  let nextYear = parseInt(year)
+  if (nextMonth > 12) {
+    nextMonth = 1
+    nextYear += 1
+  }
+
+  const nuevaFecha = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${day}`
+
+  const { error } = await supabase.from('gastos').insert({
+    user_id: user.id,
+    concepto: gasto.concepto,
+    categoria: gasto.categoria,
+    monto: gasto.monto,
+    metodo_pago: gasto.metodo_pago,
+    tarjeta: gasto.tarjeta,
+    fecha: nuevaFecha,
+    recurrente: false,
+    cuota_actual: gasto.cuota_actual + 1,
+    cuota_total: gasto.cuota_total,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true, nuevaCuota: gasto.cuota_actual + 1, totalCuotas: gasto.cuota_total }
+}
+
+export async function agregarRecurrentesMes(year: number, month: number) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { error: 'No autenticado' }
+  }
+
+  // Obtener recurrentes del mes anterior
+  let prevMonth = month - 1
+  let prevYear = year
+  if (prevMonth < 1) {
+    prevMonth = 12
+    prevYear -= 1
+  }
+
+  const prevStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`
+  const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
+  const prevEnd = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`
+
+  const { data: recurrentes, error: fetchError } = await supabase
+    .from('gastos')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('recurrente', true)
+    .gte('fecha', prevStart)
+    .lte('fecha', prevEnd)
+
+  if (fetchError || !recurrentes || recurrentes.length === 0) {
+    return { error: 'No hay gastos recurrentes del mes anterior' }
+  }
+
+  const nuevosGastos = recurrentes.map((g) => {
+    const day = g.fecha.split('-')[2]
+    return {
+      user_id: user.id,
+      concepto: g.concepto,
+      categoria: g.categoria,
+      monto: g.monto,
+      metodo_pago: g.metodo_pago,
+      tarjeta: g.tarjeta,
+      fecha: `${year}-${String(month).padStart(2, '0')}-${day}`,
+      recurrente: true,
+      cuota_actual: null,
+      cuota_total: null,
+    }
+  })
+
+  const { error } = await supabase.from('gastos').insert(nuevosGastos)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true, count: nuevosGastos.length }
 }
 
 export async function duplicarGasto(id: string, meses: number[]) {

@@ -12,6 +12,7 @@ import GraficoMetodoPago from '@/components/GraficoMetodoPago'
 import PresupuestoEditor from '@/components/PresupuestoEditor'
 import GrabarVozForm from '@/components/GrabarVozForm'
 import DuplicarMesForm from '@/components/DuplicarMesForm'
+import RecurrentesBanner from '@/components/RecurrentesBanner'
 import { cerrarSesion } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 
@@ -38,7 +39,15 @@ export default async function GastosPage({ params }: PageProps) {
   const lastDay = new Date(year, month, 0).getDate()
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-  const [gastosResult, presupuestoResult] = await Promise.all([
+  // Mes anterior para recurrentes
+  let prevMonth = month - 1
+  let prevYear = year
+  if (prevMonth < 1) { prevMonth = 12; prevYear -= 1 }
+  const prevStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`
+  const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
+  const prevEnd = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`
+
+  const [gastosResult, presupuestoResult, recurrentesResult] = await Promise.all([
     supabase
       .from('gastos')
       .select('*')
@@ -53,10 +62,18 @@ export default async function GastosPage({ params }: PageProps) {
       .eq('mes', month)
       .eq('anio', year)
       .maybeSingle(),
+    supabase
+      .from('gastos')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('recurrente', true)
+      .gte('fecha', prevStart)
+      .lte('fecha', prevEnd),
   ])
 
   const gastos: Gasto[] = gastosResult.data ?? []
   const presupuesto = presupuestoResult.data?.monto ?? 950000
+  const recurrentesPrevMes: Gasto[] = recurrentesResult.data ?? []
 
   const totalGastos = gastos.reduce((sum, g) => sum + g.monto, 0)
   const disponible = presupuesto - totalGastos
@@ -122,6 +139,15 @@ export default async function GastosPage({ params }: PageProps) {
             </p>
           </div>
         </div>
+
+        {/* Banner recurrentes */}
+        {recurrentesPrevMes.length > 0 && (
+          <RecurrentesBanner
+            recurrentesPrevMes={recurrentesPrevMes}
+            year={year}
+            month={month}
+          />
+        )}
 
         {/* Grabación de voz - Solo en desktop */}
         <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 p-4">

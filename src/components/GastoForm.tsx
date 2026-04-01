@@ -43,6 +43,10 @@ export default function GastoForm({ year, month }: GastoFormProps) {
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('Transferencia')
   const [tarjeta, setTarjeta] = useState<Tarjeta | ''>('')
   const [fecha, setFecha] = useState(todayStr)
+  const [recurrente, setRecurrente] = useState(false)
+  const [esCuota, setEsCuota] = useState(false)
+  const [cuotaActual, setCuotaActual] = useState('')
+  const [cuotaTotal, setCuotaTotal] = useState('')
   const [error, setError] = useState('')
 
   const resetForm = () => {
@@ -52,6 +56,10 @@ export default function GastoForm({ year, month }: GastoFormProps) {
     setMetodoPago('Transferencia')
     setTarjeta('')
     setFecha(todayStr)
+    setRecurrente(false)
+    setEsCuota(false)
+    setCuotaActual('')
+    setCuotaTotal('')
     setError('')
   }
 
@@ -62,6 +70,10 @@ export default function GastoForm({ year, month }: GastoFormProps) {
     const montoNum = parseInt(monto.replace(/\./g, ''), 10)
     if (!concepto.trim()) return setError('El concepto es requerido')
     if (isNaN(montoNum) || montoNum <= 0) return setError('El monto debe ser un número positivo')
+    if (esCuota) {
+      if (!cuotaActual || !cuotaTotal) return setError('Ingresa la cuota actual y el total')
+      if (parseInt(cuotaActual) > parseInt(cuotaTotal)) return setError('La cuota actual no puede ser mayor al total')
+    }
 
     startTransition(async () => {
       const result = await agregarGasto({
@@ -71,6 +83,9 @@ export default function GastoForm({ year, month }: GastoFormProps) {
         metodo_pago: metodoPago,
         tarjeta: metodoPago === 'Tarjeta' && tarjeta ? tarjeta : null,
         fecha,
+        recurrente,
+        cuota_actual: esCuota ? parseInt(cuotaActual) : null,
+        cuota_total: esCuota ? parseInt(cuotaTotal) : null,
       })
 
       if (result?.error) {
@@ -177,6 +192,57 @@ export default function GastoForm({ year, month }: GastoFormProps) {
               onChange={(e) => setFecha(e.target.value)}
               required
             />
+          </div>
+
+          {/* Cuota */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="esCuota"
+              checked={esCuota}
+              onChange={(e) => { setEsCuota(e.target.checked); if (!e.target.checked) { setCuotaActual(''); setCuotaTotal('') } }}
+              className="rounded"
+            />
+            <Label htmlFor="esCuota" className="cursor-pointer">Es cuota</Label>
+          </div>
+
+          {esCuota && (
+            <div className="flex gap-2">
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="cuotaActual">Cuota N°</Label>
+                <Input
+                  id="cuotaActual"
+                  type="number"
+                  placeholder="ej. 1"
+                  value={cuotaActual}
+                  onChange={(e) => setCuotaActual(e.target.value)}
+                  min={1}
+                />
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="cuotaTotal">Total cuotas</Label>
+                <Input
+                  id="cuotaTotal"
+                  type="number"
+                  placeholder="ej. 12"
+                  value={cuotaTotal}
+                  onChange={(e) => setCuotaTotal(e.target.value)}
+                  min={1}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Recurrente */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="recurrente"
+              checked={recurrente}
+              onChange={(e) => setRecurrente(e.target.checked)}
+              className="rounded"
+            />
+            <Label htmlFor="recurrente" className="cursor-pointer">Gasto recurrente mensual</Label>
           </div>
 
           {error && (
