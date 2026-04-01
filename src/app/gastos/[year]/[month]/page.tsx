@@ -117,8 +117,8 @@ export default async function GastosPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Grabación de voz */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        {/* Grabación de voz - Solo en desktop */}
+        <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h2 className="font-semibold text-gray-900 mb-3">🎙️ Agregar gasto por voz</h2>
           <GrabarVozForm mesActual={month} yearActual={year} />
         </div>
