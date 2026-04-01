@@ -182,6 +182,11 @@ export async function procesarGastoDeVoz(textoVoz: string, mesActual: number, ye
 
   try {
     const { Anthropic } = await import('@anthropic-ai/sdk')
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return { error: 'API key de Anthropic no configurada en servidor' }
+    }
+
     const client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     })
@@ -199,16 +204,22 @@ Texto de voz: "${textoVoz}"
 
 Responde SOLO con JSON válido, sin markdown ni explicaciones.`
 
-    const message = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 500,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    })
+    let message
+    try {
+      message = await client.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 500,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      })
+    } catch (apiError: any) {
+      console.error('Error de Anthropic API:', apiError)
+      return { error: `Error de API: ${apiError.error?.message || apiError.message || 'Error desconocido'}` }
+    }
 
     const respuestaText = message.content[0].type === 'text' ? message.content[0].text : ''
     const parsedData = JSON.parse(respuestaText)
