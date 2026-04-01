@@ -47,7 +47,8 @@ export default function AhorroSection({
 
   // Estado editar meta
   const [editandoMeta, setEditandoMeta] = useState(false)
-  const [nuevaMeta, setNuevaMeta] = useState(metaAnual.toString())
+  const [nuevaMeta, setNuevaMeta] = useState(metaAnual > 0 ? metaAnual.toString() : '')
+  const [errorMeta, setErrorMeta] = useState('')
 
   const pct = metaAnual > 0 ? Math.min(Math.round((totalAhorradoAnio / metaAnual) * 100), 100) : 0
   const faltan = metaAnual - totalAhorradoAnio
@@ -79,12 +80,20 @@ export default function AhorroSection({
   }
 
   const handleGuardarMeta = () => {
+    setErrorMeta('')
     const metaNum = parseInt(nuevaMeta.replace(/\./g, ''), 10)
-    if (isNaN(metaNum) || metaNum <= 0) return
+    if (isNaN(metaNum) || metaNum <= 0) {
+      setErrorMeta('Ingresa un monto válido')
+      return
+    }
     startTransition(async () => {
-      await actualizarMetaAhorro(year, metaNum)
-      setEditandoMeta(false)
-      router.refresh()
+      const result = await actualizarMetaAhorro(year, metaNum)
+      if (result.error) {
+        setErrorMeta(result.error)
+      } else {
+        setEditandoMeta(false)
+        router.refresh()
+      }
     })
   }
 
@@ -147,19 +156,24 @@ export default function AhorroSection({
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-gray-500">Meta {year}</span>
           {editandoMeta ? (
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                value={nuevaMeta}
-                onChange={(e) => setNuevaMeta(e.target.value)}
-                className="h-6 text-xs w-28 px-2"
-              />
-              <button onClick={handleGuardarMeta} className="text-green-600 hover:text-green-700">
-                <Check className="h-4 w-4" />
-              </button>
-              <button onClick={() => { setEditandoMeta(false); setNuevaMeta(metaAnual.toString()) }} className="text-gray-400 hover:text-gray-600">
-                <X className="h-4 w-4" />
-              </button>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  value={nuevaMeta}
+                  onChange={(e) => setNuevaMeta(e.target.value)}
+                  placeholder="ej. 1000000"
+                  className="h-6 text-xs w-32 px-2"
+                  autoFocus
+                />
+                <button onClick={handleGuardarMeta} disabled={isPending} className="text-green-600 hover:text-green-700">
+                  {isPending ? <Loader className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                </button>
+                <button onClick={() => { setEditandoMeta(false); setErrorMeta(''); setNuevaMeta(metaAnual > 0 ? metaAnual.toString() : '') }} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {errorMeta && <p className="text-xs text-red-600">{errorMeta}</p>}
             </div>
           ) : (
             <button
