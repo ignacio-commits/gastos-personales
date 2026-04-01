@@ -459,3 +459,41 @@ Responde SOLO con JSON válido, sin markdown ni explicaciones.`
     return { error: `No se pudo procesar el audio: ${errorMsg}` }
   }
 }
+
+export async function actualizarMetaAhorro(anio: number, monto_meta: number) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'No autenticado' }
+
+  const { error } = await supabase.from('meta_ahorro').upsert(
+    { user_id: user.id, anio, monto_meta },
+    { onConflict: 'user_id,anio' }
+  )
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function agregarAhorro(data: { monto: number; concepto: string; fecha: string }) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'No autenticado' }
+
+  const { error } = await supabase.from('ahorros').insert({
+    user_id: user.id,
+    monto: data.monto,
+    concepto: data.concepto || null,
+    fecha: data.fecha,
+  })
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function eliminarAhorro(id: string) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'No autenticado' }
+
+  const { error } = await supabase.from('ahorros').delete().eq('id', id).eq('user_id', user.id)
+  if (error) return { error: error.message }
+  return { success: true }
+}

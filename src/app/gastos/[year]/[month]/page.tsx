@@ -13,6 +13,7 @@ import PresupuestoEditor from '@/components/PresupuestoEditor'
 import GrabarVozForm from '@/components/GrabarVozForm'
 import DuplicarMesForm from '@/components/DuplicarMesForm'
 import RecurrentesBanner from '@/components/RecurrentesBanner'
+import AhorroSection from '@/components/AhorroSection'
 import { cerrarSesion } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 
@@ -47,7 +48,7 @@ export default async function GastosPage({ params }: PageProps) {
   const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
   const prevEnd = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`
 
-  const [gastosResult, presupuestoResult, recurrentesResult] = await Promise.all([
+  const [gastosResult, presupuestoResult, recurrentesResult, ahorrosMesResult, metaAhorroResult, ahorrosAnioResult] = await Promise.all([
     supabase
       .from('gastos')
       .select('*')
@@ -69,11 +70,33 @@ export default async function GastosPage({ params }: PageProps) {
       .eq('recurrente', true)
       .gte('fecha', prevStart)
       .lte('fecha', prevEnd),
+    supabase
+      .from('ahorros')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('fecha', startDate)
+      .lte('fecha', endDate)
+      .order('fecha', { ascending: false }),
+    supabase
+      .from('meta_ahorro')
+      .select('monto_meta')
+      .eq('user_id', user.id)
+      .eq('anio', year)
+      .maybeSingle(),
+    supabase
+      .from('ahorros')
+      .select('monto')
+      .eq('user_id', user.id)
+      .gte('fecha', `${year}-01-01`)
+      .lte('fecha', `${year}-12-31`),
   ])
 
   const gastos: Gasto[] = gastosResult.data ?? []
   const presupuesto = presupuestoResult.data?.monto ?? 950000
   const recurrentesPrevMes: Gasto[] = recurrentesResult.data ?? []
+  const ahorrosMes = ahorrosMesResult.data ?? []
+  const metaAnual = metaAhorroResult.data?.monto_meta ?? 0
+  const totalAhorradoAnio = (ahorrosAnioResult.data ?? []).reduce((sum, a) => sum + a.monto, 0)
 
   const totalGastos = gastos.reduce((sum, g) => sum + g.monto, 0)
   const disponible = presupuesto - totalGastos
@@ -190,6 +213,15 @@ export default async function GastosPage({ params }: PageProps) {
             <ResumenCategorias gastos={gastos} />
           </>
         )}
+
+        {/* Sección ahorro */}
+        <AhorroSection
+          year={year}
+          month={month}
+          metaAnual={metaAnual}
+          totalAhorradoAnio={totalAhorradoAnio}
+          ahorrosMes={ahorrosMes}
+        />
 
         <div className="h-8" />
       </main>

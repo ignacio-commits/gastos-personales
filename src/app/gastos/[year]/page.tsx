@@ -24,7 +24,7 @@ export default async function ResumenAnualPage({ params }: PageProps) {
   const startDate = `${year}-01-01`
   const endDate = `${year}-12-31`
 
-  const [gastosResult, presupuestosResult] = await Promise.all([
+  const [gastosResult, presupuestosResult, metaAhorroResult, ahorrosResult] = await Promise.all([
     supabase
       .from('gastos')
       .select('fecha, monto')
@@ -36,10 +36,26 @@ export default async function ResumenAnualPage({ params }: PageProps) {
       .select('mes, monto')
       .eq('user_id', user.id)
       .eq('anio', year),
+    supabase
+      .from('meta_ahorro')
+      .select('monto_meta')
+      .eq('user_id', user.id)
+      .eq('anio', year)
+      .maybeSingle(),
+    supabase
+      .from('ahorros')
+      .select('monto, fecha')
+      .eq('user_id', user.id)
+      .gte('fecha', startDate)
+      .lte('fecha', endDate),
   ])
 
   const gastos = gastosResult.data ?? []
   const presupuestos = presupuestosResult.data ?? []
+  const metaAnual = metaAhorroResult.data?.monto_meta ?? 0
+  const ahorros = ahorrosResult.data ?? []
+  const totalAhorradoAnio = ahorros.reduce((sum, a) => sum + a.monto, 0)
+  const pctAhorro = metaAnual > 0 ? Math.min(Math.round((totalAhorradoAnio / metaAnual) * 100), 100) : 0
 
   const presupuestoPorMes: { [mes: number]: number } = {}
   presupuestos.forEach((p) => {
@@ -181,6 +197,64 @@ export default async function ResumenAnualPage({ params }: PageProps) {
             </Link>
           )
         })}
+
+        {/* Resumen ahorro anual */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">🐷</span>
+            <h2 className="font-semibold text-gray-900">Ahorro {year}</h2>
+          </div>
+
+          {metaAnual === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-2">
+              Sin meta de ahorro configurada.{' '}
+              <Link href={`/gastos/${year}/${new Date().getMonth() + 1}`} className="text-blue-600 underline">
+                Configúrala aquí
+              </Link>
+            </p>
+          ) : (
+            <>
+              <div className="flex justify-between mb-1.5">
+                <span className="text-xs text-gray-500">Meta: {formatCLP(metaAnual)}</span>
+                <span className="text-xs font-semibold text-green-700">{formatCLP(totalAhorradoAnio)} ahorrado</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
+                <div
+                  className={`h-4 rounded-full transition-all duration-500 flex items-center justify-end pr-2 ${
+                    pctAhorro >= 100 ? 'bg-green-500' : pctAhorro >= 60 ? 'bg-emerald-400' : pctAhorro >= 30 ? 'bg-yellow-400' : 'bg-gray-300'
+                  }`}
+                  style={{ width: `${Math.max(pctAhorro, pctAhorro > 0 ? 8 : 0)}%` }}
+                >
+                  {pctAhorro >= 15 && <span className="text-xs font-bold text-white">{pctAhorro}%</span>}
+                </div>
+              </div>
+              <div className="flex justify-between mt-1.5">
+                <span className="text-xs text-gray-400">{pctAhorro}% de la meta</span>
+                {metaAnual > totalAhorradoAnio
+                  ? <span className="text-xs text-gray-400">Faltan {formatCLP(metaAnual - totalAhorradoAnio)}</span>
+                  : <span className="text-xs font-semibold text-green-600">🎉 ¡Meta lograda!</span>
+                }
+              </div>
+
+              {/* Ahorro por mes */}
+              <div className="mt-4 space-y-2">
+                {MESES.map((nombre, index) => {
+                  const mes = index + 1
+                  const totalMes = ahorros
+                    .filter((a) => parseInt(a.fecha.split('-')[1]) === mes)
+                    .reduce((sum, a) => sum + a.monto, 0)
+                  if (totalMes === 0) return null
+                  return (
+                    <div key={mes} className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">{nombre}</span>
+                      <span className="font-medium text-green-700">{formatCLP(totalMes)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
 
         <div className="h-8" />
       </main>
