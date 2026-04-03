@@ -14,6 +14,7 @@ import GrabarVozForm from '@/components/GrabarVozForm'
 import DuplicarMesForm from '@/components/DuplicarMesForm'
 import RecurrentesBanner from '@/components/RecurrentesBanner'
 import AhorroSection from '@/components/AhorroSection'
+import ComparativaMesAnterior from '@/components/ComparativaMesAnterior'
 import { cerrarSesion } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 
@@ -40,7 +41,7 @@ export default async function GastosPage({ params }: PageProps) {
   const lastDay = new Date(year, month, 0).getDate()
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-  // Mes anterior para recurrentes
+  // Mes anterior para recurrentes y comparativa
   let prevMonth = month - 1
   let prevYear = year
   if (prevMonth < 1) { prevMonth = 12; prevYear -= 1 }
@@ -48,7 +49,7 @@ export default async function GastosPage({ params }: PageProps) {
   const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
   const prevEnd = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`
 
-  const [gastosResult, presupuestoResult, recurrentesResult, ahorrosMesResult, metaAhorroResult, ahorrosAnioResult] = await Promise.all([
+  const [gastosResult, presupuestoResult, recurrentesResult, ahorrosMesResult, metaAhorroResult, ahorrosAnioResult, gastosMesAnteriorResult] = await Promise.all([
     supabase
       .from('gastos')
       .select('*')
@@ -89,6 +90,12 @@ export default async function GastosPage({ params }: PageProps) {
       .eq('user_id', user.id)
       .gte('fecha', `${year}-01-01`)
       .lte('fecha', `${year}-12-31`),
+    supabase
+      .from('gastos')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('fecha', prevStart)
+      .lte('fecha', prevEnd),
   ])
 
   const gastos: Gasto[] = gastosResult.data ?? []
@@ -97,6 +104,7 @@ export default async function GastosPage({ params }: PageProps) {
   const ahorrosMes = ahorrosMesResult.data ?? []
   const metaAnual = metaAhorroResult.data?.monto_meta ?? 0
   const totalAhorradoAnio = (ahorrosAnioResult.data ?? []).reduce((sum, a) => sum + a.monto, 0)
+  const gastosMesAnterior: Gasto[] = gastosMesAnteriorResult.data ?? []
 
   const totalGastos = gastos.reduce((sum, g) => sum + g.monto, 0)
   const totalAhorrosMes = ahorrosMes.reduce((sum, a) => sum + a.monto, 0)
@@ -172,6 +180,13 @@ export default async function GastosPage({ params }: PageProps) {
             month={month}
           />
         )}
+
+        {/* Comparativa mes anterior */}
+        <ComparativaMesAnterior
+          mesActual={month}
+          gastosMesActual={gastos}
+          gastosMesAnterior={gastosMesAnterior}
+        />
 
         {/* Grabación de voz - Solo en desktop */}
         <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 p-4">
