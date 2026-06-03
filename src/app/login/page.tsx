@@ -80,6 +80,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </Button>
+
+            <div className="text-center pt-2">
+              <a href="/recover-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                ¿Olvidaste tu contraseña?
+              </a>
+            </div>
           </form>
         </div>
       </div>
